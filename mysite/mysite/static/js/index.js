@@ -158,20 +158,41 @@ var userMedia = navigator.mediaDevices.getUserMedia(constraints)
     });
 
 
-//done correct
-function sendSignal(action, message) {
-    var jsonStr = JSON.stringify({//asa our connection opens we are sending json data to our consumer(to the receive function) 
-        //which will then broadcast it to all the users in the group.
-        'peer': username,
-        'action': 'action',
-        'message': message
-    });
-    webSocket.send(jsonStr);
+//send message functionality/Chat functionality     
+var btnSendMsg = document.querySelector('#btn-send-msg');
+var messageList = document.querySelector('#message-list');
+var messageInput = document.querySelector('#msg');
+btnSendMsg.addEventListener('click', sendMsgOnClick);
 
+
+function sendMsgOnClick() {
+    var message = messageInput.value;
+    var li = document.createElement('li');
+    li.appendChild(document.createTextNode('Me:' + message));
+    messageList.appendChild(li);
+
+    var dataChannels = getDataChannels();
+    message = username + ':' + message;
+    for (index in dataChannels) {
+        dataChannels[index].send(message);
+    }
+    messageInput.value = '';
 }
 
 
-//this function will create an sdp and send it to the channel associated with receiver_channel_name
+
+
+
+function sendSignal(action, message) {
+    var jsonStr = JSON.stringify({
+        'peer': username,
+        'action': action,
+        'message': message
+    });
+
+    webSocket.send(jsonStr);
+}
+
 function createOfferer(peerUsername, receiver_channel_name) {
     console.log('new peer joined running offerer function')
     var peer = new RTCPeerConnection(null); //this here will only allow us to connect to the devices which are within our wifi network  
@@ -190,12 +211,10 @@ function createOfferer(peerUsername, receiver_channel_name) {
     var remoteVideo = createVideo(peerUsername);
     setOnTrack(peer, remoteVideo);
 
-    //done correct
     mapPeers[peerUsername] = [peer, dc];
 
-
     //this is when a peer cannot join for some reason i.e. its state changes then we call this event on that peer
-    peer.addEventListener(oniceconnectionstatechange, () => {
+    peer.addEventListener('iceconnectionstatechange', () => {
         var iceConnectionState = peer.iceConnectionState;
 
         if (iceConnectionState === 'failed' || iceConnectionState === 'closed' || iceConnectionState === 'disconnected') {
@@ -231,7 +250,6 @@ function createOfferer(peerUsername, receiver_channel_name) {
 }
 
 
-
 function createAnswerer(offer, peerUsername, receiver_channel_name) {
     var peer = new RTCPeerConnection(null);
     addLocalTracks(peer);
@@ -253,7 +271,7 @@ function createAnswerer(offer, peerUsername, receiver_channel_name) {
 
 
     //this is when a peer cannot join for some reason i.e. its state changes then we call this event on that peer
-    peer.addEventListener(oniceconnectionstatechange, () => {
+    peer.addEventListener('iceconnectionstatechange', () => {
         var iceConnectionState = peer.iceConnectionState;
 
         if (iceConnectionState === 'failed' || iceConnectionState === 'closed' || iceConnectionState === 'disconnected') {
@@ -290,10 +308,10 @@ function createAnswerer(offer, peerUsername, receiver_channel_name) {
             console.log('Answer created');
             peer.setLocalDescription(a)
         })
+
+
 }
 
-
-//done correct
 function addLocalTracks(peer) {
     localStream.getTracks().forEach(track => {
         peer.addTrack(track, localStream);
@@ -301,7 +319,7 @@ function addLocalTracks(peer) {
     return;
 }
 
-var messageList = document.querySelector('#message-list');
+
 
 //dc.addeventlistener(message) will give us the message received thorugh the data channel and we extract that message using event.data
 function dcOnMessage(event) {
@@ -313,6 +331,7 @@ function dcOnMessage(event) {
     li.appendChild(document.createTextNode(message));
     messageList.appendChild(li);
 }
+
 
 //this function will create the video element and play the video of new peer
 function createVideo(peerUsername) { //done correct
@@ -335,7 +354,7 @@ function createVideo(peerUsername) { //done correct
 
 }
 
-//done correct
+
 function setOnTrack(peer, remoteVideo) {
     var remoteStream = new MediaStream();
 
@@ -355,3 +374,11 @@ function removeVideo(video) {
 }
 
 
+function getDataChannels() {
+    var dataChannels = [];
+    for (peerUsername in mapPeers) {
+        var dataChannel = mapPeers[peerUsername][1];
+        dataChannels.push(dataChannel);
+    }
+    return dataChannels;
+}
